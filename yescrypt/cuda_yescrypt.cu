@@ -802,25 +802,6 @@ __device__ __noinline__ uint32_t pwxform_block(uint32_t x3_in, uint32_t xk,
     return x3;
 }
 
-/* Extracted Salsa20/8 core with WarpShuffle — __noinline__ for SM 89 register optimization */
-__device__ __noinline__ uint32_t salsa_core_noinline(
-    uint32_t x0_in, uint32_t x1_in, uint32_t x2_in, uint32_t x3_in, int lane)
-{
-    uint32_t x0 = x0_in, x1 = x1_in, x2 = x2_in, x3 = x3_in;
-    uint32_t t0 = x0, t1 = x1, t2 = x2, t3 = x3;
-    for (int idx = 0; idx < 4; ++idx) {
-        SALSA(x0, x1, x2, x3);
-        WarpShuffle3(x1,x2,x3,x1,x2,x3, lane+3, lane+2, lane+1, 4);
-        SALSA(x0, x3, x2, x1);
-        WarpShuffle3(x1,x2,x3,x1,x2,x3, lane+1, lane+2, lane+3, 4);
-    }
-    x0 += t0; x1 += t1; x2 += t2; x3 += t3;
-    if (lane < 4) return x0;
-    else if (lane < 8) return x1;
-    else if (lane < 12) return x2;
-    else return x3;
-}
-
 __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c_r8(int threads, uint32_t startNonce, uint32_t offset1, uint32_t offset2, uint32_t start, uint32_t end, const uint32_t N)
 {
 	uint32_t thread_part_16 = (2 * blockIdx.x + threadIdx.y);
@@ -882,7 +863,10 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c_r8(int threads, u
 				x[k] = x3;
 			}
 			WarpShuffle4(x0, x1, x2, x3, x3, x3, x3, x3, 0 + (threadIdx.x & 3), 4 + (threadIdx.x & 3), 8 + (threadIdx.x & 3), 12 + (threadIdx.x & 3), 16);
-			x3 = salsa_core_noinline(x0, x1, x2, x3, threadIdx.x & 15);
+			SALSA_CORE(x0, x1, x2, x3);
+			if (threadIdx.x < 4) x3 = x0;
+			else if (threadIdx.x < 8) x3 = x1;
+			else if (threadIdx.x < 12) x3 = x2;
 
 			x[r * 2 - 1] = x3;
 		}
@@ -951,7 +935,10 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c1_r8(int threads, 
 				x[k] = x3;
 			}
 			WarpShuffle4(x0, x1, x2, x3, x3, x3, x3, x3, 0 + (threadIdx.x & 3), 4 + (threadIdx.x & 3), 8 + (threadIdx.x & 3), 12 + (threadIdx.x & 3), 16);
-			x3 = salsa_core_noinline(x0, x1, x2, x3, threadIdx.x & 15);
+			SALSA_CORE(x0, x1, x2, x3);
+			if (threadIdx.x < 4) x3 = x0;
+			else if (threadIdx.x < 8) x3 = x1;
+			else if (threadIdx.x < 12) x3 = x2;
 
 			x[r * 2 - 1] = x3;
 		}
@@ -1017,7 +1004,10 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c(int threads, uint
 				x[k] = x3;
 			}
 			WarpShuffle4(x0, x1, x2, x3, x3, x3, x3, x3, 0 + (threadIdx.x & 3), 4 + (threadIdx.x & 3), 8 + (threadIdx.x & 3), 12 + (threadIdx.x & 3), 16);
-			x3 = salsa_core_noinline(x0, x1, x2, x3, threadIdx.x & 15);
+			SALSA_CORE(x0, x1, x2, x3);
+			if (threadIdx.x < 4) x3 = x0;
+			else if (threadIdx.x < 8) x3 = x1;
+			else if (threadIdx.x < 12) x3 = x2;
 
 			x[64 - 1] = x3;
 		}
@@ -1069,7 +1059,10 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c1(int threads, uin
 				x[k] = x3;
 			}
 			WarpShuffle4(x0, x1, x2, x3, x3, x3, x3, x3, 0 + (threadIdx.x & 3), 4 + (threadIdx.x & 3), 8 + (threadIdx.x & 3), 12 + (threadIdx.x & 3), 16);
-			x3 = salsa_core_noinline(x0, x1, x2, x3, threadIdx.x & 15);
+			SALSA_CORE(x0, x1, x2, x3);
+			if (threadIdx.x < 4) x3 = x0;
+			else if (threadIdx.x < 8) x3 = x1;
+			else if (threadIdx.x < 12) x3 = x2;
 			x[64 - 1] = x3;
 		}
 
@@ -1116,7 +1109,10 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c2(int threads, uin
 				x[k] = x3;
 			}
 			WarpShuffle4(x0, x1, x2, x3, x3, x3, x3, x3, 0 + (threadIdx.x & 3), 4 + (threadIdx.x & 3), 8 + (threadIdx.x & 3), 12 + (threadIdx.x & 3), 16);
-			x3 = salsa_core_noinline(x0, x1, x2, x3, threadIdx.x & 15);
+			SALSA_CORE(x0, x1, x2, x3);
+			if (threadIdx.x < 4) x3 = x0;
+			else if (threadIdx.x < 8) x3 = x1;
+			else if (threadIdx.x < 12) x3 = x2;
 			x[64 - 1] = x3;
 		}
 
