@@ -376,7 +376,7 @@ static void sha256_round_body(uint32_t in[16], uint32_t state[8])
 	sha2_step1(c, d, e, f, g, h, a, b, in[14], c_K[14]);
 	sha2_step1(b, c, d, e, f, g, h, a, in[15], c_K[15]);
 
-#pragma unroll 2
+#pragma unroll 3
 	for (int i = 0; i < 3; i++)
 	{
 		sha2_step2(a, b, c, d, e, f, g, h, in, 0, c_K[16 + 16 * i]);
@@ -450,7 +450,7 @@ __global__ void yescrypt_gpu_hash_k0(int threads, uint32_t startNonce, const uin
 		in[12] = c_data[12]; in[13] = c_data[13]; in[14] = c_data[14]; in[15] = c_data[15];
 		sha256_round_body(in, state1);	// inner 128byte
 
-#pragma unroll 2
+#pragma unroll 3
 		for (uint32_t i = 0; i < 2 * r*p; i++)
 		{
 			in[0] = c_data[16]; in[1] = c_data[17]; in[2] = c_data[18]; in[3] = nonce;
@@ -787,7 +787,7 @@ __device__ __noinline__ uint32_t pwxform_block(uint32_t x3_in, uint32_t xk,
     uint32_t x0, x1;
     uint2 buf;
     WarpShuffle2(buf.x, buf.y, x3, x3, 0, 1, 2);
-#pragma unroll 2
+#pragma unroll 3
     for (int j = 0; j < 6; j++) {
         WarpShuffle2(x0, x1, buf.x, buf.y, 0, 0, 4);
         x0 = ((x0 >> 4) & 255) + 0;
@@ -823,12 +823,12 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c_r8(int threads, u
 		for (k = 0; k < 128; k++)
 			shared_mem[(threadIdx.y * 128 + k) * 16 + threadIdx.x] = Sdev(k);
 
-#pragma unroll 2
+#pragma unroll 3
 		for (k = 0; k < r * 2; k++)
 			x[k] = Bdev(k);
 
 		for (n = p2floor(start), i = start; i < end; i++) {
-#pragma unroll 2
+#pragma unroll 3
 			for (k = 0; k < r * 2; k++) {
 				x3 = x[k];
 				__stL1(&Vdev(i, k), x3);
@@ -845,11 +845,11 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c_r8(int threads, u
 				}
 			}
 
-#pragma unroll 2
+#pragma unroll 3
 			for (k = 0; k < r * 2; k++) {
 				x3 ^= x[k];
 				WarpShuffle2(buf.x, buf.y, x3, x3, 0, 1, 2);
-#pragma unroll 2
+#pragma unroll 3
 				for (j = 0; j < 6; j++) {
 					WarpShuffle2(x0, x1, buf.x, buf.y, 0, 0, 4);
 					x0 = ((x0 >> 4) & 255) + 0;
@@ -871,7 +871,7 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c_r8(int threads, u
 			x[r * 2 - 1] = x3;
 		}
 
-#pragma unroll 2
+#pragma unroll 3
 		for (k = 0; k < r * 2; k++)
 			Bdev(k) = x[k];
 
@@ -899,7 +899,7 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c1_r8(int threads, 
 		for (k = 0; k < 128; k++)
 			shared_mem[(threadIdx.y * 128 + k) * 16 + threadIdx.x] = Sdev(k);
 
-#pragma unroll 2
+#pragma unroll 3
 		for (k = 0; k < r * 2; k++)
 			x[k] = Bdev(k);
 
@@ -907,21 +907,21 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c1_r8(int threads, 
 		{
 			j = WarpShuffle(x[r * 2 - 1], 0, 16) & (N - 1);
 
-#pragma unroll 2
+#pragma unroll 3
 			for (k = 0; k < r * 2; k++)
 				x[k] ^= __ldL1(&Vdev(j, k));
 
-#pragma unroll 2
+#pragma unroll 3
 			for (k = 0; k < r * 2; k++) {
 				x3 = x[k];
 				__stL1(&Vdev(j, k), x3);
 			}
 
-#pragma unroll 2
+#pragma unroll 3
 			for (k = 0; k < r * 2; k++) {
 				x3 ^= x[k];
 				WarpShuffle2(buf.x, buf.y, x3, x3, 0, 1, 2);
-#pragma unroll 2
+#pragma unroll 3
 				for (j = 0; j < 6; j++) {
 					WarpShuffle2(x0, x1, buf.x, buf.y, 0, 0, 4);
 					x0 = ((x0 >> 4) & 255) + 0;
@@ -943,7 +943,7 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c1_r8(int threads, 
 			x[r * 2 - 1] = x3;
 		}
 
-#pragma unroll 2
+#pragma unroll 3
 		for (k = 0; k < r * 2; k++)
 			Bdev(k) = x[k];
 	}
