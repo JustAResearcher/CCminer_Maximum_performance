@@ -650,7 +650,6 @@ __global__ void yescrypt_gpu_hash_k5(int threads, uint32_t startNonce, uint32_t 
 #define SALSA_CORE(x0, x1, x2, x3) { \
 	uint32_t t0, t1, t2, t3; \
 	t0 = x0; t1 = x1; t2 = x2; t3 = x3; \
-	#pragma unroll 4
 	for (int idx = 0; idx < 4; ++idx) { \
 		SALSA(x0, x1, x2, x3); \
 		WarpShuffle3(x1,x2,x3,x1,x2,x3,threadIdx.x + 3,threadIdx.x + 2,threadIdx.x + 1,4);\
