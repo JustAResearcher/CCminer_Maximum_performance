@@ -780,7 +780,7 @@ void yescrypt_gpu_hash_k1(int threads, uint32_t startNonce, uint32_t offset)
 
 /* Extracted pwxform inner loop — __noinline__ helps SM 89 register allocator
  * by giving it a separate register allocation scope */
-__device__ __noinline__ uint32_t pwxform_block(uint32_t x3_in, uint32_t xk,
+__device__ __forceinline__ uint32_t pwxform_block(uint32_t x3_in, uint32_t xk,
     uint32_t *shared_mem, int threadIdx_x, int threadIdx_y)
 {
     uint32_t x3 = x3_in ^ xk;
