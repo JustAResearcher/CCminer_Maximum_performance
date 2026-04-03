@@ -787,13 +787,16 @@ __device__ __noinline__ uint32_t pwxform_block(uint32_t x3_in, uint32_t xk,
     uint32_t x0, x1;
     uint2 buf;
     WarpShuffle2(buf.x, buf.y, x3, x3, 0, 1, 2);
+    /* Base pointer for this warp's S-box region */
+    uint32_t *sbase = &shared_mem[threadIdx_y * 2048 + (threadIdx_x & 2)];
 #pragma unroll 3
     for (int j = 0; j < 6; j++) {
         WarpShuffle2(x0, x1, buf.x, buf.y, 0, 0, 4);
-        x0 = ((x0 >> 4) & 255) + 0;
+        x0 = ((x0 >> 4) & 255);
         x1 = ((x1 >> 4) & 255) + 256;
-        uint2 s0 = *(uint2*)&shared_mem[(threadIdx_y * 512 + x0) * 4 + (threadIdx_x & 2)];
-        uint2 s1 = *(uint2*)&shared_mem[(threadIdx_y * 512 + x1) * 4 + (threadIdx_x & 2)];
+        /* Issue both S-box reads early — compiler can overlap with mad64 */
+        uint2 s0 = *(uint2*)&sbase[x0 * 4];
+        uint2 s1 = *(uint2*)&sbase[x1 * 4];
         buf = mad64(buf.x, buf.y, s0);
         buf ^= s1;
     }
