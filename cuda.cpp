@@ -36,9 +36,10 @@ int cuda_num_devices()
 		exit(1);
 	}
 
-	if (version < CUDART_VERSION)
+	/* Relaxed version check: only require CUDA 12.0+ since we statically link cudart */
+	if (version < 12000)
 	{
-		applog(LOG_ERR, "Driver does not support CUDA %d.%d API! Update your nVidia driver!", CUDART_VERSION / 1000, (CUDART_VERSION % 1000) / 10);
+		applog(LOG_ERR, "Driver does not support CUDA 12.0+! Update your nVidia driver! (found %d.%d)", version / 1000, (version % 1000) / 10);
 		exit(1);
 	}
 
