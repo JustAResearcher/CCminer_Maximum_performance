@@ -1054,12 +1054,19 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c1(int threads, uin
 			for (k = 0; k < 64; k++)
 				x[k] ^= __ldL1(&Vdev(j, k));
 
-			/* Merged V-write + pwxform (proven 6390 config) */
-			for (k = 0; k < 64; k++) {
-				__stL1(&Vdev(j, k), x[k]);
+			/* Pipelined V-write + pwxform: issue V-write for k FIRST,
+			 * then pwxform. The streaming store for k completes while
+			 * pwxform computes. Next iteration's V-write for k+1 issues
+			 * immediately after pwxform returns, overlapping with store drain. */
+			__stL1(&Vdev(j, 0), x[0]);  /* prime the pipeline */
+			for (k = 0; k < 63; k++) {
+				__stL1(&Vdev(j, k+1), x[k+1]);  /* issue NEXT store early */
 				x3 = pwxform_block(x3, x[k], shared_mem, threadIdx.x, threadIdx.y);
 				x[k] = x3;
 			}
+			/* Last block — no next store to issue */
+			x3 = pwxform_block(x3, x[63], shared_mem, threadIdx.x, threadIdx.y);
+			x[63] = x3;
 			WarpShuffle4(x0, x1, x2, x3, x3, x3, x3, x3, 0 + (threadIdx.x & 3), 4 + (threadIdx.x & 3), 8 + (threadIdx.x & 3), 12 + (threadIdx.x & 3), 16);
 			SALSA_CORE(x0, x1, x2, x3);
 			if (threadIdx.x < 4) x3 = x0;
