@@ -97,7 +97,7 @@ int scanhash_yescrypt_base(int thr_id, uint32_t *pdata,
 
 	if (device_sm[dev_id] >= 890) {
 		/* Safe auto-tune: use 75% of VRAM, never more than what fits */
-		uint64_t usable = (props.totalGlobalMem * 65ULL) / 100ULL;
+		uint64_t usable = (props.totalGlobalMem * 75ULL) / 100ULL;
 		uint32_t mem_per_nonce = (520 + 2 * r * (N + 16 * p)) * sizeof(uint32_t);
 		uint32_t max_nonces = (uint32_t)(usable / mem_per_nonce);
 		max_nonces = (max_nonces / 32) * 32; /* round to warp, not CUDAcores */
