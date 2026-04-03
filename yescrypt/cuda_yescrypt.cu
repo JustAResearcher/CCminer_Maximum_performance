@@ -1054,12 +1054,10 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c1(int threads, uin
 			for (k = 0; k < 64; k++)
 				x[k] ^= __ldL1(&Vdev(j, k));
 
+			/* Merged V-write + pwxform: streaming store fires in background
+			 * while pwxform computes. Eliminates one full 64-iteration loop. */
 			for (k = 0; k < 64; k++) {
-				x3 = x[k];
-				__stL1(&Vdev(j, k), x3);
-			}
-
-			for (k = 0; k < 64; k++) {
+				__stL1(&Vdev(j, k), x[k]);  /* fire-and-forget streaming store */
 				x3 = pwxform_block(x3, x[k], shared_mem, threadIdx.x, threadIdx.y);
 				x[k] = x3;
 			}
