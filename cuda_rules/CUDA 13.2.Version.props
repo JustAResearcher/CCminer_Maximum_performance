@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <CudaToolkitMajorVersion Condition="'$(CudaToolkitMajorVersion)' == ''">13</CudaToolkitMajorVersion>
+        <CudaToolkitMinorVersion Condition="'$(CudaToolkitMinorVersion)' == ''">2</CudaToolkitMinorVersion>
+        <CudaToolkitVersionedPath>$(CUDA_PATH_V13_2)</CudaToolkitVersionedPath>
+
+        <CudaToolkitVersion>v$(CudaToolkitMajorVersion).$(CudaToolkitMinorVersion)</CudaToolkitVersion>
+        <CudaToolkitFullVersion>$(CudaToolkitMajorVersion).$(CudaToolkitMinorVersion).0000.0000</CudaToolkitFullVersion>
+    </PropertyGroup>
+</Project>
