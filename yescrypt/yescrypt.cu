@@ -95,16 +95,14 @@ int scanhash_yescrypt_base(int thr_id, uint32_t *pdata,
 	uint32_t max_thread_multiple = (props.totalGlobalMem - 256 * 1024 * 1024) / (((520 + 2 * r * (N + 16 * p)) * sizeof(uint32_t)) * CUDAcore_count);
 #endif
 
-	if (device_sm[dev_id] >= 890) {	// Ada Lovelace+ (RTX 4070+, RTX 5090)
-		// max_thread_multiple is per-CUDAcore. For Blackwell, compute max nonces directly.
-		/* Reserve 1GB for CUDA context + driver overhead (multi-GPU rigs need more) */
-		uint64_t reserve = 512ULL * 1024 * 1024;
-		if (props.totalGlobalMem <= reserve) reserve = props.totalGlobalMem / 4;
-		uint32_t max_nonces = (uint32_t)((props.totalGlobalMem - reserve) /
-		                      ((520 + 2 * r * (N + 16 * p)) * sizeof(uint32_t)));
-		// Round down to multiple of 32 (warp size) for alignment
-		max_nonces = (max_nonces / 32) * 32;
-		applog(LOG_WARNING, "Blackwell: max_nonces=%u CUDAcores=%u VRAM=%llu", max_nonces, CUDAcore_count, (unsigned long long)props.totalGlobalMem);
+	if (device_sm[dev_id] >= 890) {
+		/* Safe auto-tune: use 75% of VRAM, never more than what fits */
+		uint64_t usable = (props.totalGlobalMem * 3ULL) / 4ULL;
+		uint32_t mem_per_nonce = (520 + 2 * r * (N + 16 * p)) * sizeof(uint32_t);
+		uint32_t max_nonces = (uint32_t)(usable / mem_per_nonce);
+		max_nonces = (max_nonces / CUDAcore_count) * CUDAcore_count;
+		if (max_nonces < CUDAcore_count) max_nonces = CUDAcore_count;
+		applog(LOG_WARNING, "GPU%d: max_nonces=%u VRAM=%lluMB", dev_id, max_nonces, (unsigned long long)props.totalGlobalMem/1024/1024);
 		throughputmax = device_intensity(dev_id, __func__, max_nonces);
 	}
 	else if (device_sm[dev_id] > 500)	// Maxwell(GTX9xx)/Pascal/Volta/Turing/Ampere/Ada
