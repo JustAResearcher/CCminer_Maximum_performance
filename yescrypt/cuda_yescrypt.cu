@@ -1136,6 +1136,7 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c2(int threads, uin
 #undef Shared
 /* Include 32-thread-per-nonce k2c1 variant for Blackwell */
 #include "k2c1_smem.cuh"
+#include "k2c1_regvars.cuh"
 
 
 __host__
@@ -1211,6 +1212,7 @@ __host__ void yescrypt_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startN
 	dim3 grid_32t(threads / tpb * 2);
 	dim3 block_32t(32U);
 	bool use_32t = false; // smem kernel slower — L1 cache wins
+	bool use_regvars = (device_sm[dev_id] >= 890); // register-tiled pwxform for Ada+
 
 	if (device_sm[dev_id] < 500) {
 		cudaFuncSetCacheConfig(yescrypt_gpu_hash_k2c, cudaFuncCachePreferShared);
@@ -1226,6 +1228,8 @@ __host__ void yescrypt_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startN
 		cudaFuncSetAttribute(yescrypt_gpu_hash_k2c2, cudaFuncAttributePreferredSharedMemoryCarveout, 100);
 		cudaFuncSetAttribute(yescrypt_gpu_hash_k2c_r8, cudaFuncAttributePreferredSharedMemoryCarveout, 100);
 		cudaFuncSetAttribute(yescrypt_gpu_hash_k2c1_r8, cudaFuncAttributePreferredSharedMemoryCarveout, 100);
+		cudaFuncSetAttribute(yescrypt_gpu_hash_k2c1_regvars, cudaFuncAttributePreferredSharedMemoryCarveout, 100);
+		cudaFuncSetAttribute(yescrypt_gpu_hash_k2c1_r8_regvars, cudaFuncAttributePreferredSharedMemoryCarveout, 100);
 		/* Note: 100% shared carveout needed for S-boxes */
 	}
 #endif
@@ -1260,9 +1264,15 @@ __host__ void yescrypt_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startN
 						yescrypt_gpu_hash_k2c_r8 << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (N / loop_count) * k, (N / loop_count) * (k + 1), N);
 					yescrypt_gpu_hash_k2c_r8 << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, N / loop_count * (loop_count - 1), N, N);
 					CUDA_SAFE_CALL(cudaGetLastError());
-					for (uint32_t k = 0; k < loop_count - 1; k++)
-						yescrypt_gpu_hash_k2c1_r8 << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (Nw / loop_count) * k, (Nw / loop_count)* (k + 1), N);
-					yescrypt_gpu_hash_k2c1_r8 << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (Nw / loop_count) * (loop_count - 1), Nw, N);
+					if (use_regvars) {
+						for (uint32_t k = 0; k < loop_count - 1; k++)
+							yescrypt_gpu_hash_k2c1_r8_regvars << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (Nw / loop_count) * k, (Nw / loop_count)* (k + 1), N);
+						yescrypt_gpu_hash_k2c1_r8_regvars << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (Nw / loop_count) * (loop_count - 1), Nw, N);
+					} else {
+						for (uint32_t k = 0; k < loop_count - 1; k++)
+							yescrypt_gpu_hash_k2c1_r8 << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (Nw / loop_count) * k, (Nw / loop_count)* (k + 1), N);
+						yescrypt_gpu_hash_k2c1_r8 << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (Nw / loop_count) * (loop_count - 1), Nw, N);
+					}
 					CUDA_SAFE_CALL(cudaGetLastError());
 				}
 				else {
@@ -1270,7 +1280,11 @@ __host__ void yescrypt_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startN
 						yescrypt_gpu_hash_k2c << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (N / loop_count) * k, (N / loop_count) * (k + 1), N, r, p);
 					yescrypt_gpu_hash_k2c << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, N / loop_count * (loop_count - 1), N, N, r, p);
 					CUDA_SAFE_CALL(cudaGetLastError());
-					if (use_32t) {
+					if (use_regvars) {
+						for (uint32_t k = 0; k < loop_count - 1; k++)
+							yescrypt_gpu_hash_k2c1_regvars << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (Nw / loop_count) * k, (Nw / loop_count)* (k + 1), N, r, p);
+						yescrypt_gpu_hash_k2c1_regvars << <grid, block3, 16384 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (Nw / loop_count) * (loop_count - 1), Nw, N, r, p);
+					} else if (use_32t) {
 						for (uint32_t k = 0; k < loop_count - 1; k++)
 							yescrypt_gpu_hash_k2c1_smem << <grid, block3, 24576 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (Nw / loop_count) * k, (Nw / loop_count)* (k + 1), N, r, p);
 						yescrypt_gpu_hash_k2c1_smem << <grid, block3, 24576 >> > (threads, startNounce, j * (threads >> 4), (i * 4 + j) * (threads >> 4) + l * r * 2 * threads, (Nw / loop_count) * (loop_count - 1), Nw, N, r, p);
