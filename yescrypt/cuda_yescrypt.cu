@@ -998,17 +998,15 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c(int threads, uint
 				j = WarpShuffle(x3, 0, 16) & (n - 1);
 				j += i - n;
 
-				/* Merged V-read + pwxform: V-read for k+1 overlaps with pwxform for k */
 				for (k = 0; k < 64; k++) {
-					x[k] ^= __ldL1(&Vdev(j, k));
-					x3 = pwxform_block(x3, x[k], shared_mem, threadIdx.x, threadIdx.y);
+					x3 = x[k] ^ __ldL1(&Vdev(j, k));
 					x[k] = x3;
 				}
-			} else {
-				for (k = 0; k < 64; k++) {
-					x3 = pwxform_block(x3, x[k], shared_mem, threadIdx.x, threadIdx.y);
-					x[k] = x3;
-				}
+			}
+
+			for (k = 0; k < 64; k++) {
+				x3 = pwxform_block(x3, x[k], shared_mem, threadIdx.x, threadIdx.y);
+				x[k] = x3;
 			}
 			WarpShuffle4(x0, x1, x2, x3, x3, x3, x3, x3, 0 + (threadIdx.x & 3), 4 + (threadIdx.x & 3), 8 + (threadIdx.x & 3), 12 + (threadIdx.x & 3), 16);
 			SALSA_CORE(x0, x1, x2, x3);
@@ -1053,14 +1051,14 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c1(int threads, uin
 		{
 			j = WarpShuffle(x3, 0, 16) & (N - 1);
 
-			/* TRIPLE MERGE: V-read + V-write + pwxform in ONE loop.
-			 * V-read loads new data, V-write stores it (streaming), pwxform computes.
-			 * 1 loop of 64 instead of 3 loops of 64 = 2/3 less loop overhead. */
+			for (k = 0; k < 64; k++)
+				x[k] ^= __ldL1(&Vdev(j, k));
+
+			/* Merged V-write + pwxform (proven 6390 config) */
 			for (k = 0; k < 64; k++) {
-				x[k] ^= __ldL1(&Vdev(j, k));       /* V-read: load + XOR */
-				__stL1(&Vdev(j, k), x[k]);          /* V-write: streaming store */
+				__stL1(&Vdev(j, k), x[k]);
 				x3 = pwxform_block(x3, x[k], shared_mem, threadIdx.x, threadIdx.y);
-				x[k] = x3;                           /* update x for next iteration */
+				x[k] = x3;
 			}
 			WarpShuffle4(x0, x1, x2, x3, x3, x3, x3, x3, 0 + (threadIdx.x & 3), 4 + (threadIdx.x & 3), 8 + (threadIdx.x & 3), 12 + (threadIdx.x & 3), 16);
 			SALSA_CORE(x0, x1, x2, x3);
