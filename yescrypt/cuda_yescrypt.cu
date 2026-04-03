@@ -650,6 +650,7 @@ __global__ void yescrypt_gpu_hash_k5(int threads, uint32_t startNonce, uint32_t 
 #define SALSA_CORE(x0, x1, x2, x3) { \
 	uint32_t t0, t1, t2, t3; \
 	t0 = x0; t1 = x1; t2 = x2; t3 = x3; \
+	#pragma unroll 4
 	for (int idx = 0; idx < 4; ++idx) { \
 		SALSA(x0, x1, x2, x3); \
 		WarpShuffle3(x1,x2,x3,x1,x2,x3,threadIdx.x + 3,threadIdx.x + 2,threadIdx.x + 1,4);\
@@ -776,7 +777,9 @@ void yescrypt_gpu_hash_k1(int threads, uint32_t startNonce, uint32_t offset)
 #define Vdev(a, b) v[((a) * 16 + (b)) * 32]
 #define Bdev(a) B[((a) * threads + thread) * 16 + threadIdx.x]
 #define Sdev(a) S[(thread_part_4 * 128 + (a)) * 16 + threadIdx.x]
-#define Shared(a) *(uint2*)&shared_mem[(threadIdx.y * 512 + (a)) * 4 + (threadIdx.x & 2)]
+/* Precompute S-box base per warp — eliminates multiply from every S-box read */
+#define Shared_base (shared_mem + threadIdx.y * 2048 + (threadIdx.x & 2))
+#define Shared(a) *(uint2*)&Shared_base[(a) * 4]
 
 /* Extracted pwxform inner loop — __noinline__ helps SM 89 register allocator
  * by giving it a separate register allocation scope */
