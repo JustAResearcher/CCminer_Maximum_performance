@@ -988,12 +988,11 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c(int threads, uint
 
 		for (n = p2floor(start), i = start; i < end; i++) {
 
-			for (k = 0; k < 64; k++) {
-				x3 = x[k];
-				__stL1(&Vdev(i, k), x3);
-			}
-
 			if (i > 1) {
+				/* V-write slot i, then V-read slot j (j < i, no conflict) */
+				for (k = 0; k < 64; k++)
+					__stL1(&Vdev(i, k), x[k]);
+
 				if ((i & (i - 1)) == 0) n = i;
 				j = WarpShuffle(x3, 0, 16) & (n - 1);
 				j += i - n;
@@ -1002,11 +1001,19 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c(int threads, uint
 					x3 = x[k] ^ __ldL1(&Vdev(j, k));
 					x[k] = x3;
 				}
-			}
 
-			for (k = 0; k < 64; k++) {
-				x3 = pwxform_block(x3, x[k], shared_mem, threadIdx.x, threadIdx.y);
-				x[k] = x3;
+				/* Merged pwxform — same as k2c1 merge pattern */
+				for (k = 0; k < 64; k++) {
+					x3 = pwxform_block(x3, x[k], shared_mem, threadIdx.x, threadIdx.y);
+					x[k] = x3;
+				}
+			} else {
+				/* First 2 iterations: V-write + pwxform merged */
+				for (k = 0; k < 64; k++) {
+					__stL1(&Vdev(i, k), x[k]);
+					x3 = pwxform_block(x3, x[k], shared_mem, threadIdx.x, threadIdx.y);
+					x[k] = x3;
+				}
 			}
 			WarpShuffle4(x0, x1, x2, x3, x3, x3, x3, x3, 0 + (threadIdx.x & 3), 4 + (threadIdx.x & 3), 8 + (threadIdx.x & 3), 12 + (threadIdx.x & 3), 16);
 			SALSA_CORE(x0, x1, x2, x3);
@@ -1054,19 +1061,12 @@ __global__ __launch_bounds__(32, 8) void yescrypt_gpu_hash_k2c1(int threads, uin
 			for (k = 0; k < 64; k++)
 				x[k] ^= __ldL1(&Vdev(j, k));
 
-			/* Pipelined V-write + pwxform: issue V-write for k FIRST,
-			 * then pwxform. The streaming store for k completes while
-			 * pwxform computes. Next iteration's V-write for k+1 issues
-			 * immediately after pwxform returns, overlapping with store drain. */
-			__stL1(&Vdev(j, 0), x[0]);  /* prime the pipeline */
-			for (k = 0; k < 63; k++) {
-				__stL1(&Vdev(j, k+1), x[k+1]);  /* issue NEXT store early */
+			/* Merged V-write + pwxform */
+			for (k = 0; k < 64; k++) {
+				__stL1(&Vdev(j, k), x[k]);
 				x3 = pwxform_block(x3, x[k], shared_mem, threadIdx.x, threadIdx.y);
 				x[k] = x3;
 			}
-			/* Last block — no next store to issue */
-			x3 = pwxform_block(x3, x[63], shared_mem, threadIdx.x, threadIdx.y);
-			x[63] = x3;
 			WarpShuffle4(x0, x1, x2, x3, x3, x3, x3, x3, 0 + (threadIdx.x & 3), 4 + (threadIdx.x & 3), 8 + (threadIdx.x & 3), 12 + (threadIdx.x & 3), 16);
 			SALSA_CORE(x0, x1, x2, x3);
 			if (threadIdx.x < 4) x3 = x0;
