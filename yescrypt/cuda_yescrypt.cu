@@ -1227,7 +1227,7 @@ __host__ void yescrypt_cpu_hash_32(int thr_id, uint32_t threads, uint32_t startN
 
 	// �������x����Error�ɂȂ�̂ŁAloop_count�œK�x�ɕ������܂��B
 	uint32_t loop_count;
-	if (device_sm[dev_id] >= 890) loop_count = max(N * r / 32768, 1);  // Single launch — Blackwell can handle it
+	if (device_sm[dev_id] >= 890) loop_count = max(N * r / 65536, 1);  // Single launch — Blackwell can handle it
 	else if (device_sm[dev_id] > 500) loop_count = max(N * r / 16384, 1);
 	else if (device_sm[dev_id] == 500) loop_count = max(N * r / 8192, 1);
 	else if (device_sm[dev_id] > 300) loop_count = max(N * r / 4096, 1);
