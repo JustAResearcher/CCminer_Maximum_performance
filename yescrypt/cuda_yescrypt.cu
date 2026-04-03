@@ -778,7 +778,7 @@ void yescrypt_gpu_hash_k1(int threads, uint32_t startNonce, uint32_t offset)
 #define Sdev(a) S[(thread_part_4 * 128 + (a)) * 16 + threadIdx.x]
 #define Shared(a) *(uint2*)&shared_mem[(threadIdx.y * 512 + (a)) * 4 + (threadIdx.x & 2)]
 
-__global__ __launch_bounds__(32, 2)
+__global__ __launch_bounds__(32, 2) void yescrypt_gpu_hash_k2c_r8(int threads, uint32_t startNonce, uint32_t offset1, uint32_t offset2, uint32_t start, uint32_t end, const uint32_t N)
 {
 	uint32_t thread_part_16 = (2 * blockIdx.x + threadIdx.y);
 	uint32_t thread_part_4 = thread_part_16 + offset1;
@@ -854,7 +854,7 @@ __global__ __launch_bounds__(32, 2)
 	}
 }
 
-__global__ __launch_bounds__(32, 2)
+__global__ __launch_bounds__(32, 2) void yescrypt_gpu_hash_k2c1_r8(int threads, uint32_t startNonce, uint32_t offset1, uint32_t offset2, uint32_t start, uint32_t end, const uint32_t N)
 {
 	uint32_t thread_part_16 = (2 * blockIdx.x + threadIdx.y);
 	uint32_t thread_part_4 = thread_part_16 + offset1;
@@ -933,7 +933,7 @@ __global__ __launch_bounds__(32, 2)
 #define Bdev(a) B[((a) * threads + thread) * 16 + threadIdx.x]
 #define Sdev(a) S[(thread_part_4 * 128 + (a)) * 16 + threadIdx.x]
 
-__global__ __launch_bounds__(32, 2)
+__global__ __launch_bounds__(32, 2) void yescrypt_gpu_hash_k2c(int threads, uint32_t startNonce, uint32_t offset1, uint32_t offset2, uint32_t start, uint32_t end, const uint32_t N, const uint32_t r, const uint32_t p)
 {
 	uint32_t thread_part_16 = (2 * blockIdx.x + threadIdx.y);
 	uint32_t thread_part_4 = thread_part_16 + offset1;
@@ -1006,7 +1006,7 @@ __global__ __launch_bounds__(32, 2)
 	}
 }
 
-__global__ __launch_bounds__(32, 2)
+__global__ __launch_bounds__(32, 2) void yescrypt_gpu_hash_k2c1(int threads, uint32_t startNonce, uint32_t offset1, uint32_t offset2, uint32_t start, uint32_t end, const uint32_t N, const uint32_t r, const uint32_t p)
 {
 	uint32_t thread_part_16 = (2 * blockIdx.x + threadIdx.y);
 	uint32_t thread_part_4 = thread_part_16 + offset1;
@@ -1071,7 +1071,7 @@ __global__ __launch_bounds__(32, 2)
 	}
 }
 
-__global__ __launch_bounds__(32, 2)
+__global__ __launch_bounds__(32, 2) void yescrypt_gpu_hash_k2c2(int threads, uint32_t startNonce, uint32_t offset1, uint32_t offset2, const uint32_t N, const uint32_t r, const uint32_t p)
 {
 	uint32_t thread_part_16 = (2 * blockIdx.x + threadIdx.y);
 	uint32_t thread_part_4 = thread_part_16 + offset1;
