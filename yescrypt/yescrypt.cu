@@ -100,8 +100,8 @@ int scanhash_yescrypt_base(int thr_id, uint32_t *pdata,
 		uint64_t usable = (props.totalGlobalMem * 65ULL) / 100ULL;
 		uint32_t mem_per_nonce = (520 + 2 * r * (N + 16 * p)) * sizeof(uint32_t);
 		uint32_t max_nonces = (uint32_t)(usable / mem_per_nonce);
-		max_nonces = (max_nonces / CUDAcore_count) * CUDAcore_count;
-		if (max_nonces < CUDAcore_count) max_nonces = CUDAcore_count;
+		max_nonces = (max_nonces / 32) * 32; /* round to warp, not CUDAcores */
+		if (max_nonces < 32) max_nonces = 32;
 		applog(LOG_WARNING, "GPU%d: max_nonces=%u VRAM=%lluMB", dev_id, max_nonces, (unsigned long long)props.totalGlobalMem/1024/1024);
 		throughputmax = device_intensity(dev_id, __func__, max_nonces);
 	}
@@ -119,8 +119,8 @@ int scanhash_yescrypt_base(int thr_id, uint32_t *pdata,
 	if (device_sm[dev_id] >= 890)
 		throughputmax = (throughputmax / 32) * 32;
 	else
-		throughputmax = (throughputmax / CUDAcore_count) * CUDAcore_count;
-	if (throughputmax == 0) throughputmax = CUDAcore_count;
+		throughputmax = (throughputmax / 32) * 32; /* round to warp size */
+	if (throughputmax == 0) throughputmax = 32;
 
 	uint32_t throughput = min(throughputmax, max_nonce - first_nonce);
 
