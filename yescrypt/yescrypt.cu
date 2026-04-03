@@ -98,7 +98,7 @@ int scanhash_yescrypt_base(int thr_id, uint32_t *pdata,
 	if (device_sm[dev_id] >= 890) {	// Ada Lovelace+ (RTX 4070+, RTX 5090)
 		// max_thread_multiple is per-CUDAcore. For Blackwell, compute max nonces directly.
 		/* Reserve 1GB for CUDA context + driver overhead (multi-GPU rigs need more) */
-		uint64_t reserve = 1024ULL * 1024 * 1024;
+		uint64_t reserve = 512ULL * 1024 * 1024;
 		if (props.totalGlobalMem <= reserve) reserve = props.totalGlobalMem / 4;
 		uint32_t max_nonces = (uint32_t)((props.totalGlobalMem - reserve) /
 		                      ((520 + 2 * r * (N + 16 * p)) * sizeof(uint32_t)));
